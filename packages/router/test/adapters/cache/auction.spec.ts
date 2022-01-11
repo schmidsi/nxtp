@@ -125,4 +125,64 @@ describe("AuctionCache", () => {
       });
     });
   });
+
+  describe("#confirmBid", () => {
+    it("happy: confirm bid if exist", () => {
+      const chainId = 1337;
+      const assetId = mkAddress("0xabc");
+      const transactionId = getRandomBytes32();
+      const bid = {
+        assetId,
+        chainId,
+        amountReceived: utils.parseEther("1"),
+        expiry: Date.now() + 3600 * 1000,
+        transactionId,
+      };
+      auctionCache.addBid(bid);
+      const res = (auctionCache as any).confirmBid(chainId, assetId, transactionId);
+      const key = (auctionCache as any).getCachedBidCompositeKey(chainId, assetId);
+      const retrieved = (auctionCache as any).auctions.get(key).get(bid.transactionId);
+      expect(retrieved).to.deep.eq({
+        ...bid,
+        confirmed: true,
+      });
+      expect(res).to.be.eq(true);
+    });
+
+    it("false: confirm bid if not exist", () => {
+      const chainId = 1337;
+      const assetId = mkAddress("0xabc");
+      const transactionId = getRandomBytes32();
+      const bid = {
+        assetId,
+        chainId,
+        amountReceived: utils.parseEther("1"),
+        expiry: Date.now() + 3600 * 1000,
+        transactionId,
+      };
+      auctionCache.addBid(bid);
+      const res = (auctionCache as any).confirmBid(chainId, assetId, getRandomBytes32());
+      expect(res).to.be.eq(false);
+    });
+  });
+
+  describe("#removeBid", () => {
+    it("happy: remove bid", () => {
+      const chainId = 1337;
+      const assetId = mkAddress("0xabc");
+      const bid = {
+        assetId,
+        chainId,
+        amountReceived: utils.parseEther("1"),
+        expiry: Date.now() + 3600 * 1000,
+        transactionId: getRandomBytes32(),
+      };
+      auctionCache.addBid(bid);
+      (auctionCache as any).removeBid(chainId, assetId, bid.transactionId);
+
+      const key = (auctionCache as any).getCachedBidCompositeKey(chainId, assetId);
+      const retrieved = (auctionCache as any).auctions.get(key).get(bid.transactionId);
+      expect(retrieved).to.deep.eq(undefined);
+    });
+  });
 });
