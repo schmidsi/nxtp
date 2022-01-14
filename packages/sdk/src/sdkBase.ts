@@ -73,7 +73,7 @@ import {
   GetTransferQuote,
   ApproveParams,
   SdkChainConfig,
-  SdkConfigParams,
+  SdkBaseConfigParams,
 } from "./types";
 import {
   getTransactionId,
@@ -130,12 +130,7 @@ export class NxtpSdkBase {
   private readonly auctionResponseEvt = createMessagingEvt<AuctionResponse>();
   private readonly statusResponseEvt = createMessagingEvt<StatusResponse>();
 
-  constructor(
-    private readonly config: Omit<SdkConfigParams, "signer"> & {
-      signer?: Signer;
-      signerAddress: Promise<string>;
-    },
-  ) {
+  constructor(private readonly config: SdkBaseConfigParams) {
     const {
       chainConfig,
       messagingSigner,
