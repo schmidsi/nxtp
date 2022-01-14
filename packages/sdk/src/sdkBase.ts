@@ -61,7 +61,6 @@ import {
   TransactionManagerChainConfig,
 } from "./transactionManager/transactionManager";
 import {
-  SdkBaseConfigParams,
   NxtpSdkEventPayloads,
   CrossChainParams,
   CrossChainParamsSchema,
@@ -72,8 +71,9 @@ import {
   ActiveTransaction,
   CancelParams,
   GetTransferQuote,
-  SdkBaseChainConfigParams,
   ApproveParams,
+  SdkChainConfig,
+  SdkConfigParams,
 } from "./types";
 import {
   getTransactionId,
@@ -105,7 +105,7 @@ export const createMessagingEvt = <T>() => {
   return Evt.create<{ inbox: string; data?: T; err?: any }>();
 };
 
-export const setupChainReader = (logger: Logger, chainConfig: SdkBaseChainConfigParams): ChainReader => {
+export const setupChainReader = (logger: Logger, chainConfig: SdkChainConfig): ChainReader => {
   return new ChainReader(logger, chainConfig);
 };
 
@@ -130,9 +130,13 @@ export class NxtpSdkBase {
   private readonly auctionResponseEvt = createMessagingEvt<AuctionResponse>();
   private readonly statusResponseEvt = createMessagingEvt<StatusResponse>();
 
-  constructor(private readonly config: SdkBaseConfigParams) {
+  constructor(
+    private readonly config: Omit<SdkConfigParams, "signer"> & {
+      signer?: Signer;
+      signerAddress: Promise<string>;
+    },
+  ) {
     const {
-      signerAddress,
       chainConfig,
       messagingSigner,
       messaging,
@@ -142,6 +146,7 @@ export class NxtpSdkBase {
       network,
       skipPolling,
       chainData,
+      signerAddress,
     } = this.config;
 
     this.logger = logger ?? new Logger({ name: "NxtpSdk", level: "info" });
@@ -238,6 +243,7 @@ export class NxtpSdkBase {
         };
       },
     );
+
     this.transactionManager = new TransactionManager(
       txManagerConfig,
       this.chainReader,
@@ -459,7 +465,7 @@ export class NxtpSdkBase {
    * The user chooses the transactionId, and they are incentivized to keep the transactionId unique otherwise their signature could e replayed and they would lose funds.
    */
   public async getTransferQuote(params: CrossChainParams): Promise<GetTransferQuote> {
-    const user = await this.config.signerAddress;
+    const user = (await this.config.signer?.getAddress()) ?? (await this.config.signerAddress);
     const transactionId =
       params.transactionId || getTransactionId(params.sendingChainId.toString(), user, getRandomBytes32());
 

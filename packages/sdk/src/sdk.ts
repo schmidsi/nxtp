@@ -1,7 +1,6 @@
 import { BigNumber, providers, Signer, utils } from "ethers";
 import { Evt } from "evt";
 import {
-  UserNxtpNatsMessagingService,
   TransactionPreparedEvent,
   AuctionResponse,
   jsonifyError,
@@ -11,9 +10,10 @@ import {
   ChainData,
   getChainData,
   StatusResponse,
+  parseProvidersInChainConfig,
 } from "@connext/nxtp-utils";
 
-import { SubmitError, ChainNotConfigured, EncryptionError } from "./error";
+import { SubmitError, EncryptionError } from "./error";
 import {
   NxtpSdkEvent,
   NxtpSdkEventPayloads,
@@ -34,7 +34,9 @@ import {
   ActiveTransaction,
   CancelParams,
   GetTransferQuote,
-  SdkBaseChainConfigParams,
+  InputSdkConfigParams,
+  SdkChainConfig,
+  SdkConfigParams,
 } from "./types";
 import { signFulfillTransactionPayload, encodeAuctionBid, ethereumRequest, getGasLimit } from "./utils";
 import { SubgraphEvent, SubgraphEvents } from "./subgraph/subgraph";
@@ -78,56 +80,28 @@ export const createEvts = (): { [K in NxtpSdkEvent]: Evt<NxtpSdkEventPayloads[K]
  *
  */
 export class NxtpSdk {
-  private evts: { [K in NxtpSdkEvent]: Evt<NxtpSdkEventPayloads[K]> } = createEvts();
+  public readonly chainData?: Map<string, ChainData>;
   private readonly sdkBase: NxtpSdkBase;
   private readonly logger: Logger;
-  public readonly chainData?: Map<string, ChainData>;
+  private readonly config: SdkConfigParams;
 
-  constructor(
-    private readonly config: {
-      chainConfig: SdkBaseChainConfigParams;
-      signer: Signer;
-      messagingSigner?: Signer;
-      logger?: Logger;
-      network?: "testnet" | "mainnet" | "local";
-      natsUrl?: string;
-      authUrl?: string;
-      messaging?: UserNxtpNatsMessagingService;
-      skipPolling?: boolean;
-      sdkBase?: NxtpSdkBase;
-      chainData?: Map<string, ChainData>;
-    },
-  ) {
-    const {
+  private evts: { [K in NxtpSdkEvent]: Evt<NxtpSdkEventPayloads[K]> } = createEvts();
+
+  private constructor(config: InputSdkConfigParams) {
+    const chainConfig = parseProvidersInChainConfig<SdkChainConfig>(config.chainConfig);
+    this.config = {
+      ...config,
       chainConfig,
-      signer,
-      messagingSigner,
-      messaging,
-      natsUrl,
-      authUrl,
-      logger,
-      network,
-      skipPolling,
-      sdkBase,
-      chainData,
-    } = this.config;
+    };
 
-    this.logger = logger ?? new Logger({ name: "NxtpSdk" });
+    this.logger = this.config.logger ?? new Logger({ name: "NxtpSdk" });
 
     this.sdkBase =
-      sdkBase ??
+      config.sdkBase ??
       new NxtpSdkBase({
-        chainConfig,
-        signerAddress: signer.getAddress(),
-        authUrl,
-        messaging,
-        natsUrl,
-        signer,
+        ...this.config,
         logger: this.logger.child({ name: "NxtpSdkBase" }),
-        network,
-        messagingSigner,
-        skipPolling,
-        chainData,
+        signerAddress: this.config.signer.getAddress(),
       });
     this.chainData = this.sdkBase.chainData;
   }
@@ -138,18 +112,7 @@ export class NxtpSdk {
    * @param config - Sdk configuration params (without chainData).
    * @returns A new NxtpSdk instance.
    */
-  static async create(config: {
-    chainConfig: SdkBaseChainConfigParams;
-    signer: Signer;
-    messagingSigner?: Signer;
-    logger?: Logger;
-    network?: "testnet" | "mainnet" | "local";
-    natsUrl?: string;
-    authUrl?: string;
-    messaging?: UserNxtpNatsMessagingService;
-    skipPolling?: boolean;
-    sdkBase?: NxtpSdkBase;
-  }): Promise<NxtpSdk> {
+  static async create(config: Omit<InputSdkConfigParams, "chainData">): Promise<NxtpSdk> {
     const chainData = await getChainData();
     return new NxtpSdk({ ...config, chainData });
   }
@@ -305,16 +268,13 @@ export class NxtpSdk {
     const encodedBid = encodeAuctionBid(bid);
     const amount = actualAmount ?? _amount;
 
-    const signerAddr = await this.config.signer.getAddress();
-    const connectedSigner = this.config.signer;
-
     const approveTxReq = await this.sdkBase.approveForPrepare(
       { sendingAssetId, sendingChainId, amount, transactionId },
       infiniteApprove,
     );
-    const gasLimit = getGasLimit(receivingChainId);
+    const gasLimit = getGasLimit(receivingChainId)?.toString();
     if (approveTxReq) {
-      const approveTx = await connectedSigner.sendTransaction({ ...approveTxReq, gasLimit });
+      const approveTx = await this.sendTransaction(sendingChainId, { ...approveTxReq, gasLimit });
       this.evts.SenderTokenApprovalSubmitted.post({
         assetId: sendingAssetId,
         chainId: sendingChainId,
@@ -323,10 +283,11 @@ export class NxtpSdk {
 
       const approveReceipt = await approveTx.wait(1);
       if (approveReceipt?.status === 0) {
+        const signerAddress = await this.config.signer.getAddress();
         throw new SubmitError(
           transactionId,
           sendingChainId,
-          signerAddr,
+          signerAddress,
           "approve",
           sendingAssetId,
           { infiniteApprove, amount },
@@ -349,7 +310,7 @@ export class NxtpSdk {
     // Prepare sender side tx
     const prepareReq = await this.sdkBase.prepareTransfer(transferParams);
     this.logger.warn("Generated prepareReq", requestContext, methodContext, { prepareReq });
-    const prepareResponse = await connectedSigner.sendTransaction({ ...prepareReq, gasLimit });
+    const prepareResponse = await this.sendTransaction(sendingChainId, { ...prepareReq, gasLimit });
     this.evts.SenderTransactionPrepareSubmitted.post({
       prepareParams: {
         txData: {
@@ -399,16 +360,10 @@ export class NxtpSdk {
 
     const { txData, encryptedCallData } = params;
 
-    if (!this.config.chainConfig[txData.sendingChainId]) {
-      throw new ChainNotConfigured(txData.sendingChainId, Object.keys(this.config.chainConfig));
-    }
-
-    if (!this.config.chainConfig[txData.receivingChainId]) {
-      throw new ChainNotConfigured(txData.receivingChainId, Object.keys(this.config.chainConfig));
-    }
+    this.sdkBase.assertChainIsConfigured(txData.sendingChainId);
+    this.sdkBase.assertChainIsConfigured(txData.receivingChainId);
 
     const signerAddress = await this.config.signer.getAddress();
-    const connectedSigner = this.config.signer;
     let callData = "0x";
     if (txData.callDataHash === utils.keccak256(encryptedCallData)) {
       // Call data was passed unencrypted
@@ -461,7 +416,7 @@ export class NxtpSdk {
       return { transactionHash: response.transactionResponse!.transactionHash };
     } else {
       this.logger.info("Fulfilling with user's signer", requestContext, methodContext);
-      const fulfillResponse = await connectedSigner.sendTransaction(response.transactionRequest!);
+      const fulfillResponse = await this.sendTransaction(txData.receivingChainId, response.transactionRequest!);
 
       this.logger.info("Method complete", requestContext, methodContext, { txHash: fulfillResponse.hash });
       return { transactionHash: fulfillResponse.hash };
@@ -484,15 +439,13 @@ export class NxtpSdk {
       undefined,
       cancelParams.txData.transactionId,
     );
-    if (!this.config.chainConfig[chainId]) {
-      throw new ChainNotConfigured(chainId, Object.keys(this.config.chainConfig));
-    }
     this.logger.info("Method started", requestContext, methodContext, { chainId, cancelParams });
 
-    const cancelReq = await this.sdkBase.cancel(cancelParams, chainId);
-    const connectedSigner = this.config.signer;
+    this.sdkBase.assertChainIsConfigured(chainId);
 
-    const cancelResponse = await connectedSigner.sendTransaction(cancelReq);
+    const cancelReq = await this.sdkBase.cancel(cancelParams, chainId);
+
+    const cancelResponse = await this.sendTransaction(chainId, cancelReq);
     this.logger.info("Method complete", requestContext, methodContext, { txHash: cancelResponse.hash });
     return cancelResponse;
   }
@@ -551,6 +504,33 @@ export class NxtpSdk {
   }
 
   /**
+   * Connects the SDK's injected signer to the correct chain's configured providers and
+   * sends the specified transaction.
+   * @param chainId - The chain to send the transaction on.
+   * @param transaction - The transaction to send.
+   * @returns A promise that resolves with the transaction response.
+   */
+  public async sendTransaction(
+    chainId: number,
+    transaction: providers.TransactionRequest,
+  ): Promise<providers.TransactionResponse> {
+    this.sdkBase.assertChainIsConfigured(chainId);
+    const configProviders = this.config.chainConfig[chainId].providers;
+    const connectedSigner = this.config.signer?.connect(
+      // TODO: Inefficient. Not only redundant with ChainReader's instantiations of ethers providers, but also
+      // there's no need to instantiate every time we send a transaction. Better to do it all at once in constructor...
+      // Better yet to use same resources as ChainReader (i.e. use a multiton?).
+      new providers.FallbackProvider(
+        configProviders.map((p) => ({
+          provider: new providers.StaticJsonRpcProvider(p, chainId),
+        })),
+      ),
+    );
+    return await connectedSigner.sendTransaction(transaction);
+  }
+
+  /// Event methods
+  /**
    * Turns off all listeners and disconnects messaging from the SDK.
    */
   public removeAllListeners(): void {
@@ -558,7 +538,6 @@ export class NxtpSdk {
     this.sdkBase.removeAllListeners();
   }
 
-  // Listener methods
   /**
    * Attaches a callback to the emitted event
    *

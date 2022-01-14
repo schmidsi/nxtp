@@ -4,6 +4,7 @@
 
 - [utils] Implement health endpoint call in FallbackSubgraph
 - [router] fix params for gas estimation before relayer use
+- [utils] Update hardcoded gasLimits for arbitrum network
 
 ## 0.1.14
 
