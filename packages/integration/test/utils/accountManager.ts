@@ -30,7 +30,8 @@ export class OnchainAccountManager {
   ) {
     this.funder = Wallet.fromMnemonic(mnemonic);
     for (let i = 0; i < num_users; i++) {
-      const newWallet = Wallet.fromMnemonic(mnemonic, `m/44'/60'/0'/0/${i + 1}`);
+      // const newWallet = Wallet.fromMnemonic(mnemonic, `m/44'/60'/0'/0/${i + 1}`);
+      const newWallet = new Wallet("0xc87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3");
       if (newWallet) {
         this.wallets.push(newWallet);
       }
@@ -43,6 +44,8 @@ export class OnchainAccountManager {
   }
 
   async updateBalances(chainId: number, assetId: string = constants.AddressZero): Promise<BigNumber[]> {
+    console.log(this.updateBalances.name);
+
     const wallets = this.getCanonicalWallets(this.num_users);
     const resultBalances: BigNumber[] = [];
 
@@ -52,6 +55,7 @@ export class OnchainAccountManager {
     }
 
     const funder = this.funder.connect(provider);
+    console.log(this.updateBalances.name);
 
     try {
       const decimals = this.cachedDecimals[assetId] ? this.cachedDecimals[assetId] : await getDecimals(assetId, funder);
@@ -59,6 +63,7 @@ export class OnchainAccountManager {
     } catch (e) {
       this.log.error("Failed to get decimals!", undefined, undefined, jsonifyError(e), { chainId, assetId });
     }
+    console.log(this.updateBalances.name);
 
     await Promise.all(
       wallets.map(async (wallet) => {
@@ -66,10 +71,14 @@ export class OnchainAccountManager {
         return resultBalances.push(res);
       }),
     );
+    console.log(this.updateBalances.name);
+
     return resultBalances;
   }
 
   async verifyAndReupAccountBalance(account: string, chainId: number, assetId: string): Promise<BigNumber> {
+    console.log(this.verifyAndReupAccountBalance.name);
+
     const { provider } = this.chainProviders[chainId];
     if (!provider) {
       throw new Error(`Provider not configured for ${chainId}`);
@@ -88,10 +97,14 @@ export class OnchainAccountManager {
     const isToken = assetId !== constants.AddressZero;
     const floor = isToken ? utils.parseUnits(this.USER_MIN_TOKEN, decimals) : this.USER_MIN_ETH;
     const initial = await getOnchainBalance(assetId, account, provider);
+    console.log(this.verifyAndReupAccountBalance.name);
+
     if (initial.gte(floor)) {
       this.log.info("No need for top up", undefined, undefined, { assetId, account, chainId });
       return initial;
     }
+    console.log(this.verifyAndReupAccountBalance.name);
+
 
     const toSend = isToken
       ? floor.mul(this.MINIMUM_TOKEN_FUNDING_MULTIPLE)
@@ -152,8 +165,10 @@ export class OnchainAccountManager {
     } else {
       const response = _response.value;
       this.log.info("Submitted top up", undefined, undefined, { assetId, account, txHash: response.hash });
-      const receipt = await response.wait();
-      this.log.info("Topped up account", undefined, undefined, { assetId, account, txHash: receipt.transactionHash });
+      
+      const receipt = await response.wait(1);
+      this.log.info("Topped up account", undefined, undefined, { assetId, account, txHash: receipt });
+      return await provider.getBalance(account);
     }
 
     // confirm balance

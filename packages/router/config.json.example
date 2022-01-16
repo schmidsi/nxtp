@@ -12,7 +12,7 @@
     }
   },
   "logLevel": "info",
-  "mnemonic": "candy maple cake sugar pudding cream honey rich smooth crumble sweet treat",
+  "mnemonic": "",
   "swapPools": [
     {
       "name": "TEST",

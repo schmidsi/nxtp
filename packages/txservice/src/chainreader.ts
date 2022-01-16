@@ -197,6 +197,9 @@ export class ChainReader {
     blockTag: providers.BlockTag = "latest",
     _requestContext?: RequestContext,
   ): Promise<BigNumber> {
+    if(this.config.debug_hardcodeTokenPrice){
+      return  BigNumber.from(this.config.debug_hardcodeTokenPrice);
+    }
     const { requestContext } = createLoggingContext(this.getTokenPrice.name, _requestContext);
 
     const cachedPriceKey = chainId.toString().concat("-").concat(assetId).concat(blockTag.toString());

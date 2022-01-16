@@ -96,6 +96,7 @@ export class SdkManager {
 
   async giftAgentsOnchain(assetId: string, chainId: number) {
     await this.onchainMgmt.updateBalances(chainId, assetId);
+    console.log(this.giftAgentsOnchain.name);
   }
 
   /**
@@ -184,11 +185,14 @@ export class SdkManager {
   ): Promise<() => void> {
     // NOTE; we initiate all transactions serially because this isnt
     // a concurrency test. But we don't wait for them to complete
+    console.log("starting cyclical transfers");
     for (const agent of this.agents) {
+      console.log("establishing transfer");
       agent.establishCyclicalTransfers();
 
       const transactionId = getRandomBytes32();
       this.transactionInfo[transactionId] = { start: Date.now() };
+      console.log("initiating transfer");
 
       await agent.initiateCrosschainTransfer({
         transactionId,

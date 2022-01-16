@@ -14,8 +14,13 @@ import { writeStatsToFile } from "../utils/reporting";
  */
 const routerCyclical = async (numberOfAgents: number, duration: number) => {
   const config = getConfig();
-  const log = pino({ level: "error" });
-  // const amount = utils.parseEther("100").toString();
+  const log = pino({ level: "debug" });
+
+  if (!config) {
+    throw `Stopping test, no chain configuration`;
+  }
+
+  log.info(`This is the chainConfig ${JSON.stringify(config)}`);
 
   const durationMs = duration * 60 * 1000;
   // Create manager
@@ -28,12 +33,15 @@ const routerCyclical = async (numberOfAgents: number, duration: number) => {
     config.authUrl,
     config.network,
   );
+
   log.info({ agents: numberOfAgents }, "Created manager");
 
   // Get transfer config
   const sendingChainId = parseInt(Object.keys(config.chainConfig)[0]);
   const receivingChainId = parseInt(Object.keys(config.chainConfig)[1]);
+
   log.info({ sendingChainId, receivingChainId }, "Picked chains");
+
   const swap = config.swapPools.find((swap) => {
     // Must have sending and receiving chain
     const chains = swap.assets.map((a) => a.chainId);
@@ -47,14 +55,16 @@ const routerCyclical = async (numberOfAgents: number, duration: number) => {
 
   // Fund agents with tokens on sending + receiving chain
   if (manager) {
-    log.info(`Gifting agents sending chain ${sendingChainId}`);
-    await manager.giftAgentsOnchain(sendingAssetId, sendingChainId);
+    if (sendingChainId === 1337 || sendingChainId === 1338) {
+      log.info(`Gifting agents sending chain ${sendingChainId}`);
+      await manager.giftAgentsOnchain(sendingAssetId, sendingChainId);
 
-    log.info(`Gifting agents receiving chain ${receivingChainId}`);
-    await manager.giftAgentsOnchain(receivingAssetId, receivingChainId);
+      log.info(`Gifting agents receiving chain ${receivingChainId}`);
+      await manager.giftAgentsOnchain(receivingAssetId, receivingChainId);
+    }
 
     // Begin transfers
-    log.warn({ duration, numberOfAgents }, "Beginning cyclical test");
+    log.info({ duration, numberOfAgents }, "Beginning cyclical test");
 
     const provider = config.chainConfig[sendingChainId].provider;
     const chainData = await getChainData();
@@ -62,6 +72,7 @@ const routerCyclical = async (numberOfAgents: number, duration: number) => {
     const amount = utils.parseUnits(config.network === "mainnet" ? "0.0001" : "10", decimals).toString();
 
     const startTime = Date.now();
+    console.log(`chainID: ${sendingChainId}`);
     const killSwitch = await manager.startCyclicalTransfers({
       sendingAssetId,
       sendingChainId,

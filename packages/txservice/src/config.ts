@@ -114,6 +114,8 @@ const CoreChainConfigSchema = Type.Object({
   // purposes only, and can greatly affect performance.
   // Whether to log rpc calls.
   debug_logRpcCalls: Type.Boolean(),
+
+  debug_hardcodeTokenPrice: Type.Integer(),
 });
 
 export type CoreChainConfig = Static<typeof CoreChainConfigSchema>;
@@ -210,6 +212,7 @@ export const DEFAULT_CHAIN_CONFIG: CoreChainConfig = {
   // to get 1 confirmation.
   confirmationTimeout: 90_000,
   debug_logRpcCalls: false,
+  debug_hardcodeTokenPrice: parseUnits("1", "gwei").toNumber(),
 };
 
 export const DEFAULT_CHAIN_CONFIG_VALUE_MINS = {

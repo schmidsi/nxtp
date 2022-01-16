@@ -131,6 +131,10 @@ export class Subgraph {
         SubgraphDomain.COMMON,
         typeof subgraph === "string" ? [subgraph] : subgraph,
       );
+      this.logger.info(`FALLBACK SUBGRAPH CREATED ${JSON.stringify(fallbackSubgraph)}`, undefined, undefined, {
+        chainId: cId,
+        subgraphValues: (fallbackSubgraph as any).subgraphs.values(),
+      });
       this.sdks[cId] = fallbackSubgraph;
       this.syncStatus[cId] = {
         latestBlock: 0,

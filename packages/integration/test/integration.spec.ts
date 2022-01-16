@@ -219,6 +219,7 @@ describe("Integration", () => {
         sendingChainId: SENDING_CHAIN,
         receivingChainId: RECEIVING_CHAIN,
       });
+      console.log(`Quote: \n\n\n${JSON.stringify(quote)}`);
     } catch (err) {
       logger.error({ err: jsonifyError(err) }, "Error getting transfer quote");
       throw err;
@@ -265,7 +266,7 @@ describe("Integration", () => {
       const receipt = await tx.wait(2);
       logger.info({ transactionHash: receipt.transactionHash, chainId: SENDING_CHAIN }, "TOKEN_GIFT to user mined: ");
     }
-
+//@ts-ignore
     userSdk = new NxtpSdk({
       chainConfig,
       signer: userWallet.connect(sendingChainProvider),

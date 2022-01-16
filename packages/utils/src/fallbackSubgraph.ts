@@ -142,6 +142,7 @@ export class FallbackSubgraph<T> {
     // Add in any configured subgraph urls we want to use.
     urls.forEach((url) => {
       this.subgraphs.set(url, this.createSubgraphRecord(url));
+      console.log("FALLBACK SUBG, ADDED URL:", url, this.subgraphs);
     });
     this.sync(undefined, true);
   }
@@ -365,6 +366,8 @@ export class FallbackSubgraph<T> {
       // Set the latest sync to now.
       this.latestSync = Date.now();
     });
+
+    console.log("FALLBACK SUBGRAPH SYNC FINISHED", this.subgraphs, this.records);
 
     return this.records;
   }

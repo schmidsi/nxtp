@@ -15,6 +15,7 @@ import {
   SenderTransactionPrepareSubmittedPayload,
   SenderTokenApprovalSubmittedPayload,
   getMinExpiryBuffer,
+  
 } from "@connext/nxtp-sdk";
 import {
   AuctionResponse,
@@ -27,9 +28,10 @@ import {
   TransactionPreparedEvent,
   UserNxtpNatsMessagingService,
 } from "@connext/nxtp-utils";
-import { Signer } from "ethers";
+import { providers, Signer, utils } from "ethers";
 import { Evt, VoidCtx } from "evt";
 import PriorityQueue from "p-queue";
+import { config } from "process";
 
 import { ChainConfig, getConfig } from "./config";
 
@@ -144,16 +146,49 @@ export class SdkAgent {
       queues[parseInt(chainId)] = new PriorityQueue({ concurrency: 1 });
     });
 
-    const chainConfig: { [chainId: number]: { providers: { url: string; user?: string; password?: string }[] } } = {};
-    Object.keys(chainProviders).map((_chainId) => {
-      const chainId = parseInt(_chainId);
-      chainConfig[chainId] = {
-        providers: chainProviders[chainId].providerUrls.map((url) => ({ url })),
-      };
-    });
+    // const chainConfig: SdkBaseChainConfigParams = {};
+
+    // Object.keys(chainProviders).map((_chainId) => {
+    //   const chainId = parseInt(_chainId);
+    //   chainConfig[chainId] = {
+    //     providers: [...chainProviders[chainId].providerUrls],
+    //     transactionManagerAddress: chainProviders[chainId].transactionManagerAddress,
+    //     subgraph: chainProviders[chainId].subgraph
+    //   };
+    // });
+
+    const erc20Address = "0x8f0483125FCb9aaAEFA9209D8E9d7b9C8B9Fb90F";
+
+const txManagerAddressSending = "0x8CdaF0CD259887258Bc13a92C0a6dA92698644C0";
+const txManagerAddressReceiving = txManagerAddressSending;
+
+const SENDING_CHAIN = 1337;
+const SENDING_PROVIDER_URL = "http://localhost:8545";
+const RECEIVING_CHAIN = 1338;
+const RECEIVING_PROVIDER_URL = "http://localhost:8546";
+
+const sendingChainProvider = new providers.FallbackProvider([
+  new providers.StaticJsonRpcProvider(SENDING_PROVIDER_URL, SENDING_CHAIN),
+]);
+const receivingChainProvider = new providers.FallbackProvider([
+  new providers.StaticJsonRpcProvider(RECEIVING_PROVIDER_URL, RECEIVING_CHAIN),
+]);
+
+const chainConfig = {
+  [SENDING_CHAIN]: {
+    providers: [SENDING_PROVIDER_URL],
+    transactionManagerAddress: txManagerAddressSending,
+    subgraph: "http://localhost:8010/subgraphs/name/connext/nxtp",
+  },
+  [RECEIVING_CHAIN]: {
+    providers: [RECEIVING_PROVIDER_URL],
+    transactionManagerAddress: txManagerAddressReceiving,
+    subgraph: "http://localhost:9010/subgraphs/name/connext/nxtp",
+  },
+};
 
     // Create sdk
-    const sdk = new NxtpSdk({
+    const sdk = await NxtpSdk.create({
       chainConfig,
       signer: connected,
       natsUrl,
@@ -313,7 +348,21 @@ export class SdkAgent {
         while (!auction && auction_attempts <= MAX_AUCTION_ATTEMPTS) {
           auction_attempts++;
           try {
-            auction = await this.sdk.getTransferQuote(bid);
+            await this.sdk.getActiveTransactions();
+            // const rxerc20Address = "0x8f0483125FCb9aaAEFA9209D8E9d7b9C8B9Fb90F";
+            // const txerc20Address = rxerc20Address;
+            // auction = await this.sdk.getTransferQuote(bid);
+            auction = await this.sdk.getTransferQuote({
+              amount: utils.parseEther("10").toString(),
+              sendingAssetId: params.sendingAssetId,
+              receivingAssetId: params.receivingAssetId,
+              receivingAddress: this.address,
+              expiry: Math.floor(Date.now() / 1000) + 3600 * 24 * 3,
+              sendingChainId: params.sendingChainId,
+              receivingChainId: params.receivingChainId,
+            });
+
+            console.log(`Quote: \n\n\n${JSON.stringify(auction)}`);
           } catch (e) {
             this.logger.warn(`Auction error, retry`, requestContext, methodContext, { error: e.message });
           }
@@ -332,7 +381,7 @@ export class SdkAgent {
           try {
             const prepareTxfr = await this.sdk.prepareTransfer(auction, true);
             this.logger.debug(`Prepared xfr object ${prepareTxfr}`);
-            const receipt = await prepareTxfr.prepareResponse.wait();
+            const receipt = await prepareTxfr.prepareResponse.wait(1);
             this.logger.debug("Prepare tx confirmed", requestContext, methodContext, { hash: receipt.transactionHash });
           } catch (e) {
             this.logger.warn(`Couldnt prepare transfer :(`, requestContext, methodContext, { error: e.message });

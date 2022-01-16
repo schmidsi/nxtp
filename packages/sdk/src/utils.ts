@@ -13,7 +13,7 @@ import {
   isChainSupportedByGelato as _isChainSupportedByGelato,
   getDecimalsForAsset as _getDecimalsForAsset,
 } from "@connext/nxtp-utils";
-import { utils } from "ethers";
+import { utils, BigNumber, BigNumberish } from "ethers";
 
 export const getTransactionId = (chainId: string, signerAddress: string, randomSalt: string): string => {
   return utils.keccak256(
@@ -28,7 +28,10 @@ export const getTransactionId = (chainId: string, signerAddress: string, randomS
  * @param chainId
  * @returns Gas Limit
  */
-export const getGasLimit = (_chainId: number): number | undefined => {
+export const getGasLimit = (_chainId: number): BigNumberish | undefined => {
+  if(_chainId === 1337 || _chainId === 1338){
+    return BigNumber.from(300_0000);
+  }
   return undefined;
 };
 

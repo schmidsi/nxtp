@@ -508,6 +508,8 @@ export class NxtpSdkBase {
 
     const sendingChainProvider = this.config.chainConfig[sendingChainId]?.providers;
     const receivingChainProvider = this.config.chainConfig[receivingChainId]?.providers;
+
+    console.log(`RX and SX chain providers ${JSON.stringify(sendingChainProvider), JSON.stringify(receivingChainProvider)}`);
     if (!sendingChainProvider) {
       throw new ChainNotConfigured(sendingChainId, Object.keys(this.config.chainConfig));
     }
