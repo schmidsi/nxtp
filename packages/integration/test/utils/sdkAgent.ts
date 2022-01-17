@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unnecessary-type-assertion */
 import {
   CrossChainParams,
   NxtpSdk,
@@ -133,7 +134,7 @@ export class SdkAgent {
     const address = await signer.getAddress();
     logger.debug(`Connecting to chain provider`);
 
-    const connected = signer.connect(chainProviders[chainId].provider);
+    const connected = signer.connect(chainProviders[chainId].providers);
 
     if (!connected.provider) {
       logger.debug(`Couldn't connect to provider for ${chainId}`);
@@ -145,6 +146,8 @@ export class SdkAgent {
     });
 
     const chainConfig: { [chainId: number]: { providers: { url: string; user?: string; password?: string }[] } } = {};
+
+    console.log(`CHAIN PROVIDERS ${JSON.stringify(chainProviders)}`);
     Object.keys(chainProviders).map((_chainId) => {
       const chainId = parseInt(_chainId);
       chainConfig[chainId] = {
@@ -153,7 +156,11 @@ export class SdkAgent {
     });
 
     // Create sdk
-    const sdk = new NxtpSdk({
+    console.log(`Chain Config ${JSON.stringify(chainConfig)}`);
+    chainConfig[1] = {
+      providers: [{ url: "https://mainnet.infura.io/v3/19b854cad0bc4089bffd0c93f23ece9f" }],
+    };
+    const sdk = await NxtpSdk.create({
       chainConfig,
       signer: connected,
       natsUrl,
@@ -188,7 +195,7 @@ export class SdkAgent {
       try {
         await this.sdk.fulfillTransfer(data);
       } catch (e) {
-        error = jsonifyError(e);
+        error = jsonifyError(e as any);
         this.logger.error("Fulfilling failed", undefined, undefined, error, {
           transactionId: data.txData.transactionId,
           error,
@@ -313,9 +320,9 @@ export class SdkAgent {
         while (!auction && auction_attempts <= MAX_AUCTION_ATTEMPTS) {
           auction_attempts++;
           try {
-            auction = await this.sdk.getTransferQuote(bid);
+            auction = await this.sdk.getTransferQuote({...bid, preferredRouters:["0xe6a3Dc2971532f5feB6B650E5dDa2fe923D13af2"]});
           } catch (e) {
-            this.logger.warn(`Auction error, retry`, requestContext, methodContext, { error: e.message });
+            this.logger.warn(`Auction error, retry`, requestContext, methodContext, { error: (e as any).message });
           }
           this.logger.debug(
             `Auction attempt ${auction_attempts} for TransactionID: ${bid.transactionId}`,
@@ -335,7 +342,9 @@ export class SdkAgent {
             const receipt = await prepareTxfr.prepareResponse.wait();
             this.logger.debug("Prepare tx confirmed", requestContext, methodContext, { hash: receipt.transactionHash });
           } catch (e) {
-            this.logger.warn(`Couldnt prepare transfer :(`, requestContext, methodContext, { error: e.message });
+            this.logger.warn(`Couldnt prepare transfer :(`, requestContext, methodContext, {
+              error: (e as any).message,
+            });
           }
         } else {
           this.logger.debug(`Couldn't get an auction response`, requestContext, methodContext, {
@@ -345,7 +354,7 @@ export class SdkAgent {
         }
         // Transfer will auto-fulfill based on established listeners
       } catch (e) {
-        const error = jsonifyError(e);
+        const error = jsonifyError(e as any);
         this.logger.error("Preparing failed", requestContext, methodContext, error, {
           transactionId: bid.transactionId,
           error,
@@ -356,7 +365,7 @@ export class SdkAgent {
           transactionId: bid.transactionId,
           address: this.address,
           timestamp: Date.now(),
-          error: jsonifyError(e),
+          error: jsonifyError(e as any),
         });
         process.exit(1);
       }

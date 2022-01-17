@@ -33,6 +33,7 @@ const routerCyclical = async (numberOfAgents: number, duration: number) => {
   // Get transfer config
   const sendingChainId = parseInt(Object.keys(config.chainConfig)[0]);
   const receivingChainId = parseInt(Object.keys(config.chainConfig)[1]);
+
   log.info({ sendingChainId, receivingChainId }, "Picked chains");
   const swap = config.swapPools.find((swap) => {
     // Must have sending and receiving chain
@@ -56,10 +57,10 @@ const routerCyclical = async (numberOfAgents: number, duration: number) => {
     // Begin transfers
     log.warn({ duration, numberOfAgents }, "Beginning cyclical test");
 
-    const provider = config.chainConfig[sendingChainId].provider;
+    const provider = config.chainConfig[sendingChainId].providers;
     const chainData = await getChainData();
     const decimals = await getDecimalsForAsset(sendingAssetId, sendingChainId, provider, chainData);
-    const amount = utils.parseUnits(config.network === "mainnet" ? "0.0001" : "10", decimals).toString();
+    const amount = utils.parseUnits(config.network === "mainnet" ? "0.0001" : "1000", decimals).toString();
 
     const startTime = Date.now();
     const killSwitch = await manager.startCyclicalTransfers({

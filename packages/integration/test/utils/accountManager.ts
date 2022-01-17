@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unnecessary-type-assertion */
 import { jsonifyError, Logger } from "@connext/nxtp-utils";
 import { BigNumber, constants, providers, utils, Wallet } from "ethers";
 import PriorityQueue from "p-queue";
@@ -46,18 +47,18 @@ export class OnchainAccountManager {
     const wallets = this.getCanonicalWallets(this.num_users);
     const resultBalances: BigNumber[] = [];
 
-    const { provider } = this.chainProviders[chainId];
-    if (!provider) {
+    const { providers } = this.chainProviders[chainId];
+    if (!providers) {
       throw new Error(`Provider not configured for ${chainId}`);
     }
 
-    const funder = this.funder.connect(provider);
+    const funder = this.funder.connect(providers);
 
     try {
       const decimals = this.cachedDecimals[assetId] ? this.cachedDecimals[assetId] : await getDecimals(assetId, funder);
       this.cachedDecimals[assetId] = decimals;
     } catch (e) {
-      this.log.error("Failed to get decimals!", undefined, undefined, jsonifyError(e), { chainId, assetId });
+      this.log.error("Failed to get decimals!", undefined, undefined, jsonifyError(e as any), { chainId, assetId });
     }
 
     await Promise.all(
@@ -70,8 +71,8 @@ export class OnchainAccountManager {
   }
 
   async verifyAndReupAccountBalance(account: string, chainId: number, assetId: string): Promise<BigNumber> {
-    const { provider } = this.chainProviders[chainId];
-    if (!provider) {
+    const { providers } = this.chainProviders[chainId];
+    if (!providers) {
       throw new Error(`Provider not configured for ${chainId}`);
     }
 
@@ -80,14 +81,14 @@ export class OnchainAccountManager {
       throw new Error(`No queue found for ${chainId}`);
     }
 
-    const funder = this.funder.connect(provider);
+    const funder = this.funder.connect(providers);
 
     const decimals = this.cachedDecimals[assetId] ? this.cachedDecimals[assetId] : await getDecimals(assetId, funder);
     this.cachedDecimals[assetId] = decimals;
 
     const isToken = assetId !== constants.AddressZero;
     const floor = isToken ? utils.parseUnits(this.USER_MIN_TOKEN, decimals) : this.USER_MIN_ETH;
-    const initial = await getOnchainBalance(assetId, account, provider);
+    const initial = await getOnchainBalance(assetId, account, providers);
     if (initial.gte(floor)) {
       this.log.info("No need for top up", undefined, undefined, { assetId, account, chainId });
       return initial;
@@ -98,7 +99,7 @@ export class OnchainAccountManager {
       : floor.sub(initial).mul(this.MINIMUM_ETH_FUNDING_MULTIPLE);
 
     // Check balance before sending
-    const funderBalance = await getOnchainBalance(assetId, this.funder.address, provider);
+    const funderBalance = await getOnchainBalance(assetId, this.funder.address, providers);
     if (funderBalance.lt(toSend)) {
       throw new Error(
         `${this.funder.address} has insufficient funds for ${assetId} on ${chainId}. Has ${utils.formatEther(
@@ -107,7 +108,7 @@ export class OnchainAccountManager {
       );
     }
 
-    const connectedFunder = this.funder.connect(provider);
+    const connectedFunder = this.funder.connect(providers);
     if (!this.funderNonces.get(chainId)) {
       this.funderNonces.set(chainId, await connectedFunder.getTransactionCount("pending"));
     }
@@ -128,7 +129,7 @@ export class OnchainAccountManager {
             );
             break;
           } catch (e) {
-            errors.push(e);
+            errors.push(e as any);
           }
         }
         if (response) {
@@ -157,7 +158,7 @@ export class OnchainAccountManager {
     }
 
     // confirm balance
-    return await provider.getBalance(account);
+    return await providers.getBalance(account);
   }
 
   getCanonicalWallets(num: number): Wallet[] {

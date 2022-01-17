@@ -1,4 +1,4 @@
-import { BigNumber, providers, Signer, utils } from "ethers";
+import { BigNumber, ethers, providers, Signer, utils } from "ethers";
 import { Evt } from "evt";
 import {
   UserNxtpNatsMessagingService,
@@ -39,6 +39,7 @@ import {
 import { signFulfillTransactionPayload, encodeAuctionBid, ethereumRequest, getGasLimit } from "./utils";
 import { SubgraphEvent, SubgraphEvents } from "./subgraph/subgraph";
 import { NxtpSdkBase } from "./sdkBase";
+import { runInThisContext } from "vm";
 
 export const MIN_SLIPPAGE_TOLERANCE = "00.01"; // 0.01%;
 export const MAX_SLIPPAGE_TOLERANCE = "15.00"; // 15.0%
@@ -306,8 +307,17 @@ export class NxtpSdk {
     const amount = actualAmount ?? _amount;
 
     const signerAddr = await this.config.signer.getAddress();
-    const connectedSigner = this.config.signer;
+    
+    const correctProvider = new ethers.providers.JsonRpcProvider(this.config.chainConfig[sendingChainId].providers[0]);
+    
+    const connectedSigner = this.config.signer.connect(correctProvider);
 
+    console.log(`Connected singer Print: ${JSON.stringify(connectedSigner)}`);
+
+
+    // console.log(`Signer Properties: ${this.config.signer}`);
+    
+    // const connectedSigner = new ethers.Wallet(this.config.signer._signingKey(), correctProvider);
     const approveTxReq = await this.sdkBase.approveForPrepare(
       { sendingAssetId, sendingChainId, amount, transactionId },
       infiniteApprove,
@@ -349,6 +359,9 @@ export class NxtpSdk {
     // Prepare sender side tx
     const prepareReq = await this.sdkBase.prepareTransfer(transferParams);
     this.logger.warn("Generated prepareReq", requestContext, methodContext, { prepareReq });
+
+    this.logger.warn(`Connected signer ChainId, ${JSON.stringify(await connectedSigner.getChainId())}`);
+    
     const prepareResponse = await connectedSigner.sendTransaction({ ...prepareReq, gasLimit });
     this.evts.SenderTransactionPrepareSubmitted.post({
       prepareParams: {

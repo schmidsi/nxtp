@@ -578,6 +578,7 @@ export class NxtpSdkBase {
     });
 
     if (BigNumber.from(receiverAmount).lt(0)) {
+      console.log(`NOT ENOUGH ERROR ${JSON.stringify({ receiverAmount, totalFee, routerFee, gasFee, relayerFee: metaTxRelayerFee })}`);
       throw new NotEnoughAmount({ receiverAmount, totalFee, routerFee, gasFee, relayerFee: metaTxRelayerFee });
     }
 

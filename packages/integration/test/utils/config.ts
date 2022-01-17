@@ -6,7 +6,7 @@ export type ChainConfig = {
   [chainId: number]: {
     confirmations: number;
     providerUrls: string[];
-    provider: providers.FallbackProvider;
+    providers: providers.FallbackProvider;
     transactionManagerAddress?: string;
     priceOracleAddress?: string;
     subgraph?: string | string[];
@@ -83,7 +83,7 @@ export const getConfig = (useDefaultLocal = false): Config => {
     chainConfig[parseInt(chainId)] = {
       confirmations,
       providerUrls: providerUrls,
-      provider: new providers.FallbackProvider(
+      providers: new providers.FallbackProvider(
         providerUrls.map((url: string) => new providers.StaticJsonRpcProvider(url, parseInt(chainId))),
         1,
       ),

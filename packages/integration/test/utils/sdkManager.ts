@@ -84,13 +84,14 @@ export class SdkManager {
           }),
       );
       agents.push(..._agents);
+      console.log(agents);
     }
 
     // Create manager
-
     const manager = new SdkManager(onchain, agents, log.child({ name: "SdkManager" }));
     // Setup manager listeners
     manager.setupTransferListeners();
+
     return manager;
   }
 
@@ -124,6 +125,7 @@ export class SdkManager {
     timeout: number,
     _agent: SdkAgent,
   ): Promise<TransactionInfo> {
+
     const agent = _agent ?? this.getRandomAgent();
 
     const transactionId = params.transactionId ?? getRandomBytes32();
@@ -184,18 +186,18 @@ export class SdkManager {
   ): Promise<() => void> {
     // NOTE; we initiate all transactions serially because this isnt
     // a concurrency test. But we don't wait for them to complete
-    for (const agent of this.agents) {
-      agent.establishCyclicalTransfers();
+    // for (const agent of this.agents) {
+      this.agents[0].establishCyclicalTransfers();
 
       const transactionId = getRandomBytes32();
       this.transactionInfo[transactionId] = { start: Date.now() };
 
-      await agent.initiateCrosschainTransfer({
+      await this.agents[0].initiateCrosschainTransfer({
         transactionId,
-        receivingAddress: agent.address,
+        receivingAddress: this.agents[0].address,
         ...initialParams,
       });
-    }
+    // }
 
     const killSwitch = () => {
       this.agents.map((agent) => {
