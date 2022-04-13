@@ -566,6 +566,76 @@ contract Connext is
       revert Connext__execute_notApprovedRelayer();
     }
 
+    return _execute(_args);
+  }
+
+  /**
+   * @notice Called by relayer when they want to claim owed funds on a given domain
+   * @dev Domain should be the origin domain of all the transfer ids
+   * @param _recipient - address on origin chain to send claimed funds to
+   * @param _domain - domain to claim funds on
+   * @param _transferIds - transferIds to claim
+   */
+  function initiateClaim(
+    uint32 _domain,
+    address _recipient,
+    bytes32[] calldata _transferIds
+  ) external {
+    ConnextUtils.initiateClaim(_domain, _recipient, _transferIds, relayerFeeRouter, transferRelayer);
+
+    emit InitiatedClaim(_domain, _recipient, msg.sender, _transferIds);
+  }
+
+  /**
+   * @notice Pays out a relayer for the given fees
+   * @dev Called by the RelayerFeeRouter.handle message. The validity of the transferIds is
+   * asserted before dispatching the message.
+   * @param _recipient - address on origin chain to send claimed funds to
+   * @param _transferIds - transferIds to claim
+   */
+  function claim(address _recipient, bytes32[] calldata _transferIds) external onlyRelayerFeeRouter {
+    uint256 total = ConnextUtils.claim(_recipient, _transferIds, relayerFees);
+
+    emit Claimed(_recipient, total, _transferIds);
+  }
+
+  function multicall(bytes[] calldata data) external returns (bytes[] memory results) {
+    return ConnextUtils.multicall(data);
+  }
+
+  /**
+   * @notice This function is called on the destination chain when the bridged asset should be swapped
+   * into the adopted asset and the external call executed. Can be used before reconcile (when providing
+   * fast liquidity) or after reconcile (when using liquidity from the bridge)
+   * @dev Will store the `ExecutedTransfer` if fast liquidity is provided, or assert the hash of the
+   * `ReconciledTransfer` when using bridge liquidity
+   * @param _args - The `ExecuteArgs` for the transfer
+   * @return bytes32 The transfer id of the crosschain transfer
+   */
+  function executeMulti(ExecuteArgs[] calldata _args) external returns (bytes32[] memory) {
+    // If the sender is not approved relayer, revert()
+    if (!approvedRelayers[msg.sender]) {
+      revert Connext__execute_notApprovedRelayer();
+    }
+
+    uint256 length = _args.length;
+    bytes32[] memory transferIds = new bytes32[](length);
+    uint256 i;
+    for (i; i < length; ) {
+      ExecuteArgs calldata args = _args[i];
+      transferIds[i] = _execute(args);
+
+      unchecked {
+        i++;
+      }
+    }
+
+    return transferIds;
+  }
+
+  // ============ Private functions ============
+
+  function _execute(ExecuteArgs calldata _args) internal returns (bytes32) {
     // Get the starting gas
     uint256 _start = gasleft();
 
@@ -640,38 +710,6 @@ contract Connext is
 
     return _transferId;
   }
-
-  /**
-   * @notice Called by relayer when they want to claim owed funds on a given domain
-   * @dev Domain should be the origin domain of all the transfer ids
-   * @param _recipient - address on origin chain to send claimed funds to
-   * @param _domain - domain to claim funds on
-   * @param _transferIds - transferIds to claim
-   */
-  function initiateClaim(
-    uint32 _domain,
-    address _recipient,
-    bytes32[] calldata _transferIds
-  ) external {
-    ConnextUtils.initiateClaim(_domain, _recipient, _transferIds, relayerFeeRouter, transferRelayer);
-
-    emit InitiatedClaim(_domain, _recipient, msg.sender, _transferIds);
-  }
-
-  /**
-   * @notice Pays out a relayer for the given fees
-   * @dev Called by the RelayerFeeRouter.handle message. The validity of the transferIds is
-   * asserted before dispatching the message.
-   * @param _recipient - address on origin chain to send claimed funds to
-   * @param _transferIds - transferIds to claim
-   */
-  function claim(address _recipient, bytes32[] calldata _transferIds) external onlyRelayerFeeRouter {
-    uint256 total = ConnextUtils.claim(_recipient, _transferIds, relayerFees);
-
-    emit Claimed(_recipient, total, _transferIds);
-  }
-
-  // ============ Private functions ============
 
   /**
    * @notice Contains the logic to verify + increment a given routers liquidity
