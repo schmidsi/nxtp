@@ -1074,40 +1074,34 @@ describe("Connext", () => {
     expect(testMessage).to.be.eq(serializedMessage);
   });
 
-  describe("top level batching", () => {
-    it.only("should work for tokens", async () => {
+  describe("execute top level batching", () => {
+    it("should work for multicall", async () => {
       // Setup stable swap for adopted => canonical on origin
-      console.log(0)
       await (await originAdopted.increaseAllowance(stableSwap.address, SEED * 3)).wait()
+      await (await canonical.increaseAllowance(stableSwap.address, SEED * 3)).wait()
 
       const swapCanonical = await stableSwap
         .connect(admin)
         .setupPool(originAdopted.address, canonical.address, 3 * SEED, 3*SEED);
       await swapCanonical.wait();
 
-      console.log(1)
-
       // Setup stable swap for local => adopted on dest
-      await (await destinationAdopted.increaseAllowance(stableSwap.address, SEED * 3)).wait()
+      await (await destinationAdopted.increaseAllowance(stableSwap.address, 3*SEED * 2)).wait()
+      await (await local.increaseAllowance(stableSwap.address, 3*SEED * 2)).wait()
       const swapLocal = await stableSwap
         .connect(admin)
         .setupPool(destinationAdopted.address, local.address, 3*SEED * 2, 3*SEED * 2);
       await swapLocal.wait();
 
-      console.log(2)
-
       // Add router liquidity
       const approveLiq = await local.connect(router).approve(destinationTm.address, parseEther("100000").mul(3));
       await approveLiq.wait();
-      console.log(3)
       const addLiq = await destinationTm.connect(router).addLiquidity(parseEther("0.1").mul(3), local.address);
       await addLiq.wait();
-      console.log(4)
 
       // Approve user
       const approveAmt = await originAdopted.connect(user).approve(originTm.address, parseEther("100000").mul(3));
       await approveAmt.wait();
-      console.log(5)
 
       // Get pre-prepare balances
       const prePrepare = await Promise.all([
@@ -1131,31 +1125,27 @@ describe("Connext", () => {
         prepareReceipts.push(await prepare.wait())
       }
 
-      // // Check balance of user + bridge
-      // const postPrepare = await Promise.all([
-      //   originAdopted.balanceOf(user.address),
-      //   canonical.balanceOf(originBridge.address),
-      // ]);
-      // expect(postPrepare[0]).to.be.eq(prePrepare[0].sub(amount));
-      // expect(postPrepare[1]).to.be.eq(prePrepare[1].add(amount));
+      // Check balance of user + bridge
+      const postPrepare = await Promise.all([
+        originAdopted.balanceOf(user.address),
+        canonical.balanceOf(originBridge.address),
+      ]);
+      expect(postPrepare[0]).to.be.eq(prePrepare[0].sub(amount*3));
+      expect(postPrepare[1]).to.be.eq(prePrepare[1].add(amount*3));
 
       // Get the message + id from the events
       const nonces = await Promise.all(prepareReceipts.map(async (recipt) => {
-        const topics = originBridge.filters.Send().topics as string[];
-        const bridgeEvent = originBridge.interface.parseLog(recipt.logs.find((l) => l.topics.includes(topics[0]))!);
-        const message = (bridgeEvent!.args as any).message;
-
         const originTmEvent = (await originTm.queryFilter(originTm.filters.XCalled())).find(
           (a) => a.blockNumber === recipt.blockNumber,
         );
         return (originTmEvent!.args as any).nonce;
       }));
 
-      // // Get pre-execute balances
-      // const preExecute = await Promise.all([
-      //   destinationAdopted.balanceOf(user.address),
-      //   destinationTm.routerBalances(router.address, local.address),
-      // ]);
+      // Get pre-execute balances
+      const preExecute = await Promise.all([
+        destinationAdopted.balanceOf(user.address),
+        destinationTm.routerBalances(router.address, local.address),
+      ]);
 
       // Fulfill with the router
       const routerAmount = amount - 500;
@@ -1184,23 +1174,122 @@ describe("Connext", () => {
         expect(await destinationTm.transferRelayer(transferId)).to.eq(router.address)
       }
 
+      // Check balance of user + bridge
+      const postExecute = await Promise.all([
+        destinationAdopted.balanceOf(user.address),
+        destinationTm.routerBalances(router.address, local.address),
+      ]);
+      expect(postExecute[0]).to.be.eq(preExecute[0].add(routerAmount*3));
+      expect(postExecute[1]).to.be.eq(preExecute[1].sub(routerAmount*3));
 
-      // // Check balance of user + bridge
-      // const postExecute = await Promise.all([
-      //   destinationAdopted.balanceOf(user.address),
-      //   destinationTm.routerBalances(router.address, local.address),
-      // ]);
-      // expect(postExecute[0]).to.be.eq(preExecute[0].add(routerAmount));
-      // expect(postExecute[1]).to.be.eq(preExecute[1].sub(routerAmount));
+      console.log("Gas used in multicall ===> ", execReceipt.cumulativeGasUsed.toString())
+    });
 
-      // // Reconcile via bridge
-      // const preReconcile = await destinationTm.routerBalances(router.address, local.address);
-      // const reconcile = await destinationBridge
-      //   .connect(admin)
-      //   .handle(originDomain, 0, addressToBytes32(originBridge.address), message);
-      // await reconcile.wait();
-      // const postReconcile = await destinationTm.routerBalances(router.address, local.address);
-      // expect(postReconcile).to.be.eq(preReconcile.add(amount));
+    it("should work for executeMulti", async () => {
+      // Setup stable swap for adopted => canonical on origin
+      await (await originAdopted.increaseAllowance(stableSwap.address, SEED * 3)).wait()
+      await (await canonical.increaseAllowance(stableSwap.address, SEED * 3)).wait()
+
+      const swapCanonical = await stableSwap
+        .connect(admin)
+        .setupPool(originAdopted.address, canonical.address, 3 * SEED, 3*SEED);
+      await swapCanonical.wait();
+
+      // Setup stable swap for local => adopted on dest
+      await (await destinationAdopted.increaseAllowance(stableSwap.address, 3*SEED * 2)).wait()
+      await (await local.increaseAllowance(stableSwap.address, 3*SEED * 2)).wait()
+      const swapLocal = await stableSwap
+        .connect(admin)
+        .setupPool(destinationAdopted.address, local.address, 3*SEED * 2, 3*SEED * 2);
+      await swapLocal.wait();
+
+      // Add router liquidity
+      const approveLiq = await local.connect(router).approve(destinationTm.address, parseEther("100000").mul(3));
+      await approveLiq.wait();
+      const addLiq = await destinationTm.connect(router).addLiquidity(parseEther("0.1").mul(3), local.address);
+      await addLiq.wait();
+
+      // Approve user
+      const approveAmt = await originAdopted.connect(user).approve(originTm.address, parseEther("100000").mul(3));
+      await approveAmt.wait();
+
+      // Get pre-prepare balances
+      const prePrepare = await Promise.all([
+        originAdopted.balanceOf(user.address),
+        canonical.balanceOf(originBridge.address),
+      ]);
+
+      // Prepare from the user
+      const params = {
+        to: user.address,
+        callData: "0x",
+        originDomain,
+        destinationDomain,
+      };
+      const transactingAssetId = originAdopted.address;
+      const amount = 1000;
+      const relayerFee = 1;
+      let prepareReceipts = []
+      for (let index = 0; index < 3; index++) {
+        const prepare = await originTm.connect(user).xcall({ params, transactingAssetId, amount, relayerFee }, { value: relayerFee })
+        prepareReceipts.push(await prepare.wait())
+      }
+
+      // Check balance of user + bridge
+      const postPrepare = await Promise.all([
+        originAdopted.balanceOf(user.address),
+        canonical.balanceOf(originBridge.address),
+      ]);
+      expect(postPrepare[0]).to.be.eq(prePrepare[0].sub(amount*3));
+      expect(postPrepare[1]).to.be.eq(prePrepare[1].add(amount*3));
+
+      // Get the message + id from the events
+      const nonces = await Promise.all(prepareReceipts.map(async (recipt) => {
+        const originTmEvent = (await originTm.queryFilter(originTm.filters.XCalled())).find(
+          (a) => a.blockNumber === recipt.blockNumber,
+        );
+        return (originTmEvent!.args as any).nonce;
+      }));
+
+      // Get pre-execute balances
+      const preExecute = await Promise.all([
+        destinationAdopted.balanceOf(user.address),
+        destinationTm.routerBalances(router.address, local.address),
+      ]);
+
+      // Fulfill with the router
+      const routerAmount = amount - 500;
+      const executeMultiArgs = nonces.map( nonce => {
+        return {
+          params,
+          nonce,
+          local: local.address,
+          amount: routerAmount,
+          routers: [router.address],
+          originSender: user.address,
+        }
+      })
+
+      const execute = await destinationTm.connect(router).executeMulti(executeMultiArgs);
+      const execReceipt = await execute.wait();
+
+      const destTmEvents = (await destinationTm.queryFilter(destinationTm.filters.Executed())).filter(
+        (a) => a.blockNumber === execReceipt.blockNumber,
+      );
+      const transferIds = destTmEvents.map(destTmEvent => (destTmEvent!.args as any).transferId);
+      for (const transferId of transferIds) {
+        expect(await destinationTm.transferRelayer(transferId)).to.eq(router.address)
+      }
+
+      // Check balance of user + bridge
+      const postExecute = await Promise.all([
+        destinationAdopted.balanceOf(user.address),
+        destinationTm.routerBalances(router.address, local.address),
+      ]);
+      expect(postExecute[0]).to.be.eq(preExecute[0].add(routerAmount*3));
+      expect(postExecute[1]).to.be.eq(preExecute[1].sub(routerAmount*3));
+
+      console.log("Gas used in executeMulti ===> ", execReceipt.cumulativeGasUsed.toString())
     });
   })
 
