@@ -106,6 +106,16 @@ yarn workspace @connext/nxtp-contracts hardhat enroll-handler --handler \<REMOTE
 yarn workspace @connext/nxtp-contracts hardhat etherscan-verify --solc-input --network \<NETWORK_NAME\>
 ```
 
+**NOTE:** If you are having trouble verifying the `Connext_Implementation` or the `StableSwap` contracts, try verifying with libraries specified:
+
+```sh
+# verifying StableSwap on rinkeby
+yarn workspace @connext/nxtp-contracts hardhat verify --network rinkeby --libraries deployments/rinkeby/swapLibs.js \<STABLE_SWAP_ADDR\>
+
+# verifying Connext_Implementation on rinkeby
+yarn workspace @connext/nxtp-contracts hardhat verify --network kovan --libraries deployments/kovan/connextLibs.js \<CONNEXT_IMPLEMENTATION_ADDR\>
+```
+
 5. Once the contracts have been deployed, export them using:
 
 ```sh
