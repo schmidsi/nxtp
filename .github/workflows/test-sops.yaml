@@ -25,17 +25,16 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v1
+        uses: Fooji/create-aws-profile-action@v1
         with:
-          aws-access-key-id: ${{ secrets.DEPLOYER_AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.DEPLOYER_AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          profile: aws-deployer-connext
+          region: us-east-1
+          key: ${{ secrets.DEPLOYER_AWS_ACCESS_KEY_ID }}
+          secret: ${{ secrets.DEPLOYER_AWS_SECRET_ACCESS_KEY }}
 
       - name: Decrypt Testnet Secrets
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.DEPLOYER_AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.DEPLOYER_AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: us-east-1
+          AWS_PROFILE: aws-deployer-connext
         id: decrypt
         run: sops -d ops/env/testnet/secrets.staging.json > ops/testnet/staging/tfvars.json
 
