@@ -9,7 +9,7 @@ export const create = async (config: SubgraphReaderConfig): Promise<SubgraphMap>
   for (const chain of Object.keys(config.chains)) {
     const chainId = chain;
     const { maxLag, runtime: runtimeUrls } = config.chains[chain];
-    const queryUrls = runtimeUrls.map((runtimeUrl) => runtimeUrl.query);
+    const queryUrls = runtimeUrls.map((runtimeUrl: { query: any }) => runtimeUrl.query);
     subgraphMap.set(chainId, {
       runtime: new FallbackSubgraph<RuntimeSdk>(
         Number(chainId),

@@ -29,9 +29,6 @@ export class SubgraphReader {
     return new SubgraphReader(subgraphs);
   }
 
-  // TODO: query
-  public async query() {}
-
   /**
    *
    * Returns available liquidity for the given asset on the Connext on the provided chain.
