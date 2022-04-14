@@ -186,16 +186,73 @@ export const getTransfer = gql`
   }
 `;
 
-export const getExecutedAndReconciledTransfersByIds = gql`
-  query GetExecutedAndReconciledTransfersByIds($transferIds: [Bytes!], $maxXCalledBlockNumber: BigInt!) {
+export const getExecutedTransfersByIds = gql`
+  query GetExecutedTransfersByIds($transferIds: [Bytes!], $maxExecutedBlockNumber: BigInt!) {
+    transfers(
+      where: { transferId_in: $transferIds, executedBlockNumber_lte: $maxExecutedBlockNumber, status_in: [Executed] }
+    ) {
+      id
+      # Meta
+      originDomain
+      destinationDomain
+      chainId
+      status
+      # Transfer Data
+      to
+      transferId
+      callTo
+      callData
+      idx
+      nonce
+      router {
+        id
+      }
+      # XCalled
+      xcalledTransactingAsset
+      xcalledLocalAsset
+      xcalledTransactingAmount
+      xcalledLocalAmount
+      xcalledCaller
+      # XCalled Transaction
+      xcalledTransactionHash
+      xcalledTimestamp
+      xcalledGasPrice
+      xcalledGasLimit
+      xcalledBlockNumber
+      # Executed
+      executedCaller
+      executedTransactingAmount
+      executedLocalAmount
+      executedTransactingAsset
+      executedLocalAsset
+      # Executed Transaction
+      executedTransactionHash
+      executedTimestamp
+      executedGasPrice
+      executedGasLimit
+      executedBlockNumber
+      # Reconciled
+      reconciledCaller
+      reconciledLocalAsset
+      reconciledLocalAmount
+      # Reconciled Transaction
+      reconciledTransactionHash
+      reconciledTimestamp
+      reconciledGasPrice
+      reconciledGasLimit
+      reconciledBlockNumber
+    }
+  }
+`;
+
+export const getReconciledTransfersByIds = gql`
+  query GetReconciledTransfersByIds($transferIds: [Bytes!], $maxReconciledBlockNumber: BigInt!) {
     transfers(
       where: {
         transferId_in: $transferIds
-        xcalledBlockNumber_lte: $maxXCalledBlockNumber
-        status_in: [Executed, Reconciled]
+        reconciledBlockNumber_lte: $maxReconciledBlockNumber
+        status_in: [Reconciled]
       }
-      orderBy: xcalledBlockNumber
-      orderDirection: desc
     ) {
       id
       # Meta
@@ -254,6 +311,18 @@ export const getExecutedAndReconciledTransfersByIds = gql`
 export const getAssetByLocal = gql`
   query GetAssetByLocal($local: Bytes!) {
     assets(where: { local: $local }) {
+      id
+      local
+      adoptedAsset
+      canonicalId
+      canonicalDomain
+    }
+  }
+`;
+
+export const getAssetByCanonicalId = gql`
+  query GetAssetByCanonicalId($canonicalId: Bytes!) {
+    assets(where: { canonicalId: $canonicalId }) {
       id
       local
       adoptedAsset
