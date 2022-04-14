@@ -68,9 +68,11 @@ export class SubgraphReader {
   public async getAssetByLocal(chain: number, local: string): Promise<Asset | undefined> {
     const subgraph = this.subgraphs.get(chain.toString());
     // handle doesnt exist
-    const { assets } = await subgraph!.runtime.request<GetAssetByLocalQuery>((client) => {
-      return client.GetAssetByLocal({ local });
-    });
+    const { assets } = await subgraph!.runtime.request<GetAssetByLocalQuery>(
+      (client: { GetAssetByLocal: (arg0: { local: string }) => any }) => {
+        return client.GetAssetByLocal({ local });
+      },
+    );
     if (assets.length === 0) {
       return undefined;
     }
@@ -81,9 +83,11 @@ export class SubgraphReader {
   public async getAssetByCanonicalId(chain: number, canonicalId: string): Promise<Asset | undefined> {
     const subgraph = this.subgraphs.get(chain.toString());
     // handle doesnt exist
-    const { assets } = await subgraph!.runtime.request<GetAssetByLocalQuery>((client) => {
-      return client.GetAssetByCanonicalId({ canonicalId });
-    });
+    const { assets } = await subgraph!.runtime.request<GetAssetByLocalQuery>(
+      (client: { GetAssetByCanonicalId: (arg0: { canonicalId: string }) => any }) => {
+        return client.GetAssetByCanonicalId({ canonicalId });
+      },
+    );
     if (assets.length === 0) {
       return undefined;
     }
@@ -106,9 +110,13 @@ export class SubgraphReader {
     destinationDomains: string[] = [...this.subgraphs.keys()],
   ): Promise<XTransfer[]> {
     const { parser } = getHelpers();
-    const { transfers } = await this.subgraphs.get(domain)!.runtime.request<GetTransfersQuery>((client) => {
-      return client.GetTransfers({ destinationDomains, nonce: fromNonce });
-    });
+    const { transfers } = await this.subgraphs
+      .get(domain)!
+      .runtime.request<GetTransfersQuery>(
+        (client: { GetTransfers: (arg0: { destinationDomains: string[]; nonce: number }) => any }) => {
+          return client.GetTransfers({ destinationDomains, nonce: fromNonce });
+        },
+      );
     return transfers.map(parser.xtransfer);
   }
 
@@ -120,15 +128,23 @@ export class SubgraphReader {
     const allPrepared: XTransfer[] = (
       await Promise.all(
         [...this.subgraphs].map(async ([domain, subgraph]) => {
-          const { transfers } = await subgraph.runtime.request<GetXCalledTransfersQuery>((client) => {
-            const nonce = agents.get(domain)!.latestNonce;
+          const { transfers } = await subgraph.runtime.request<GetXCalledTransfersQuery>(
+            (client: {
+              GetXCalledTransfers: (arg0: {
+                destinationDomains: string[];
+                maxXCallBlockNumber: any;
+                nonce: any;
+              }) => any;
+            }) => {
+              const nonce = agents.get(domain)!.latestNonce;
 
-            return client.GetXCalledTransfers({
-              destinationDomains,
-              maxXCallBlockNumber: agents.get(domain)!.maxBlockNumber.toString(),
-              nonce,
-            });
-          });
+              return client.GetXCalledTransfers({
+                destinationDomains,
+                maxXCallBlockNumber: agents.get(domain)!.maxBlockNumber.toString(),
+                nonce,
+              });
+            },
+          );
           return transfers;
         }),
       )
