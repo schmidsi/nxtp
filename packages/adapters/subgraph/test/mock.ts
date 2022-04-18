@@ -34,3 +34,5 @@ export const mockSubgraphConfig: SubgraphReaderConfig = {
     },
   },
 };
+
+export const mockSubgraphEntity = {};
