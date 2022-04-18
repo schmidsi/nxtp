@@ -561,12 +561,32 @@ contract Connext is
    * @return bytes32 The transfer id of the crosschain transfer
    */
   function execute(ExecuteArgs calldata _args) external override returns (bytes32) {
-    // If the sender is not approved relayer, revert()
-    if (!approvedRelayers[msg.sender]) {
-      revert Connext__execute_notApprovedRelayer();
-    }
+    _onlyApprovedRelayer();
 
     return _execute(_args);
+  }
+
+  /**
+   * @notice Processes multiple `execute` in a single transaction
+   * @param _args - The `ExecuteArgs` for each transfer
+   * @return bytes32[] The transfer ids of the crosschain transfers
+   */
+  function executeMulti(ExecuteArgs[] calldata _args) external returns (bytes32[] memory) {
+    _onlyApprovedRelayer();
+
+    uint256 length = _args.length;
+    bytes32[] memory transferIds = new bytes32[](length);
+    uint256 i;
+    for (i; i < length; ) {
+      ExecuteArgs calldata args = _args[i];
+      transferIds[i] = _execute(args);
+
+      unchecked {
+        i++;
+      }
+    }
+
+    return transferIds;
   }
 
   /**
@@ -603,38 +623,23 @@ contract Connext is
     return ConnextUtils.multicall(data);
   }
 
+  // ============ Private functions ============
+
   /**
-   * @notice This function is called on the destination chain when the bridged asset should be swapped
-   * into the adopted asset and the external call executed. Can be used before reconcile (when providing
-   * fast liquidity) or after reconcile (when using liquidity from the bridge)
-   * @dev Will store the `ExecutedTransfer` if fast liquidity is provided, or assert the hash of the
-   * `ReconciledTransfer` when using bridge liquidity
-   * @param _args - The `ExecuteArgs` for the transfer
-   * @return bytes32 The transfer id of the crosschain transfer
+   * @notice Validates that the caller is an approved relayer
    */
-  function executeMulti(ExecuteArgs[] calldata _args) external returns (bytes32[] memory) {
+  function _onlyApprovedRelayer() internal view {
     // If the sender is not approved relayer, revert()
     if (!approvedRelayers[msg.sender]) {
       revert Connext__execute_notApprovedRelayer();
     }
-
-    uint256 length = _args.length;
-    bytes32[] memory transferIds = new bytes32[](length);
-    uint256 i;
-    for (i; i < length; ) {
-      ExecuteArgs calldata args = _args[i];
-      transferIds[i] = _execute(args);
-
-      unchecked {
-        i++;
-      }
-    }
-
-    return transferIds;
   }
 
-  // ============ Private functions ============
-
+  /**
+   * @notice Transfer execution logic
+   * @param _args - The `ExecuteArgs` for the transfer
+   * @return bytes32 The transfer id of the crosschain transfer
+   */
   function _execute(ExecuteArgs calldata _args) internal returns (bytes32) {
     // Get the starting gas
     uint256 _start = gasleft();
