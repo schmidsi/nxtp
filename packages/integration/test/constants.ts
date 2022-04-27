@@ -24,6 +24,7 @@ const DESTINATION_DOMAIN = "1111"; // Rinkeby
 export const CANONICAL_DOMAIN = "ORIGIN";
 export const MIN_USER_ETH = utils.parseEther("0.02");
 export const MIN_FUNDER_ETH = utils.parseEther("0").add(MIN_USER_ETH);
+export const RELAYER_FEE_AMOUNT = utils.parseEther("0.01");
 export const TRANSFER_TOKEN_AMOUNT = utils.parseEther("25");
 export const LOGFILE_PATH = "ops/data";
 // Time period in ms, after which we consider the fast liquidity layer's `execute` to have timed out!

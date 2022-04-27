@@ -24,6 +24,7 @@ import {
   SEQUENCER_CONFIG,
   ORIGIN_ASSET,
   MIN_USER_ETH,
+  RELAYER_FEE_AMOUNT,
   TRANSFER_TOKEN_AMOUNT,
   MIN_FUNDER_ETH,
   DESTINATION_ASSET,
@@ -522,13 +523,15 @@ describe("Integration:E2E", () => {
           originDomain: domainInfo.ORIGIN.domain,
           destinationDomain: domainInfo.DESTINATION.domain,
         },
+        relayerFee: RELAYER_FEE_AMOUNT.toString(),
         transactingAssetId: ORIGIN_ASSET.address,
-        amount: TRANSFER_TOKEN_AMOUNT.toString(),
+        amount: TRANSFER_TOKEN_AMOUNT.sub(RELAYER_FEE_AMOUNT).toString(),
       };
       const encoded = connext.encodeFunctionData("xcall", [args]);
       const tx = await agents.user.origin.sendTransaction({
         to: originConnextAddress,
         data: encoded,
+        gasLimit: BigNumber.from("300000"),
       });
       const receipt = await tx.wait(1);
       log.info("XCall sent.", {
@@ -661,7 +664,7 @@ describe("Integration:E2E", () => {
       log.info("Transfer completed successfully!", {
         domain: domainInfo.DESTINATION,
         etc: {
-          locallyExecuted: agents.router && transfer.router && transfer.router === agents.router?.address,
+          locallyExecuted: agents.router && transfer.routers && transfer.routers.includes(agents.router.address),
           transfer,
         },
       });
