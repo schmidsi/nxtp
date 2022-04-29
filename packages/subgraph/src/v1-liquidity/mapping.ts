@@ -32,9 +32,10 @@ export function handleLiquidityAdded(event: LiquidityAdded): void {
 }
 
 export function handleLiquidityRemoved(event: LiquidityRemoved): void {
-  const router = Router.load(event.params.router.toHex());
+  let router = Router.load(event.params.router.toHex());
   if (router == null) {
-    throw new Error(`Router not found on liquidity removed event`);
+    router = new Router(event.params.router.toHex());
+    router.save();
   }
   const timestamp = event.block.timestamp;
 
@@ -51,11 +52,10 @@ export function handleLiquidityRemoved(event: LiquidityRemoved): void {
 }
 
 export function handleTransactionPrepared(event: TransactionPrepared): void {
-  const router = Router.load(event.params.router.toHex());
+  let router = Router.load(event.params.router.toHex());
   if (router == null) {
-    throw new Error(
-      `Router (${event.params.router.toHex()}) not found on transaction prepared event on ${event.transaction.hash}`,
-    );
+    router = new Router(event.params.router.toHex());
+    router.save();
   }
   const timestamp = event.block.timestamp;
   const chainId = getChainId(event.address);
@@ -82,11 +82,10 @@ export function handleTransactionPrepared(event: TransactionPrepared): void {
 }
 
 export function handleTransactionFulfilled(event: TransactionFulfilled): void {
-  const router = Router.load(event.params.router.toHex());
+  let router = Router.load(event.params.router.toHex());
   if (router == null) {
-    throw new Error(
-      `Router (${event.params.router.toHex()}) not found on transaction fulfilled event ${event.transaction.hash}`,
-    );
+    router = new Router(event.params.router.toHex());
+    router.save();
   }
   const timestamp = event.block.timestamp;
   const chainId = getChainId(event.address);
@@ -112,11 +111,10 @@ export function handleTransactionFulfilled(event: TransactionFulfilled): void {
 }
 
 export function handleTransactionCancelled(event: TransactionCancelled): void {
-  const router = Router.load(event.params.router.toHex());
+  let router = Router.load(event.params.router.toHex());
   if (router == null) {
-    throw new Error(
-      `Router (${event.params.router.toHex()}) not found on transaction cancelled event ${event.transaction.hash}`,
-    );
+    router = new Router(event.params.router.toHex());
+    router.save();
   }
   const timestamp = event.block.timestamp;
   const chainId = getChainId(event.address);
