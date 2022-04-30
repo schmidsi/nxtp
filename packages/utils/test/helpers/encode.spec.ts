@@ -24,6 +24,7 @@ const externalCallData: ExternalCall = {
   to: mkAddress("0xaaa"),
   callData: getRandomBytes32(),
 };
+
 describe("Helpers:Encode", () => {
   describe("#encodeRouterPathPayload", () => {
     it("happy case", () => {
@@ -35,6 +36,7 @@ describe("Helpers:Encode", () => {
       expect(encodedData[127]).to.be.eq("1");
     });
   });
+
   describe("#encodeReconcileData", () => {
     it("should error if the reconcile transaction is corrupted", () => {
       const reconcileTx2: ReconciledTransaction = {
@@ -45,10 +47,12 @@ describe("Helpers:Encode", () => {
       };
       expect(() => encodeReconcileData(reconcileTx2)).to.throw();
     });
+
     it("happy case", () => {
       expect(() => encodeReconcileData(reconcileTranasaction)).to.not.throw();
     });
   });
+
   describe("#getReconciledHash", () => {
     it("happy case", () => {
       const reconcileHash = getReconciledHash(reconcileTranasaction);
@@ -56,6 +60,7 @@ describe("Helpers:Encode", () => {
       expect(reconcileHash).to.be.eq(keccak256Result);
     });
   });
+
   describe("#encodeExternalCallData", () => {
     it("should error if the externalCall data is corrupted", () => {
       const externalCallData2: ExternalCall = {
@@ -64,10 +69,12 @@ describe("Helpers:Encode", () => {
       };
       expect(() => encodeExternalCallData(externalCallData2)).to.throw();
     });
+
     it("happy case", () => {
       expect(() => encodeExternalCallData(externalCallData)).to.not.throw();
     });
   });
+
   describe("#getExternalCallHash", () => {
     it("happy case", () => {
       expect(getExternalCallHash(externalCallData)).to.be.eq(keccak256(encodeExternalCallData(externalCallData)));

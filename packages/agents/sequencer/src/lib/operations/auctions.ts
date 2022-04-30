@@ -11,7 +11,7 @@ import {
   jsonifyError,
 } from "@connext/nxtp-utils";
 
-import { AuctionExpired, MissingXCall, ParamsInvalid } from "../errors";
+import { AssetNotFound, AuctionExpired, InvalidRouterSignature, MissingXCall, ParamsInvalid } from "../errors";
 import { getContext } from "../../sequencer";
 import { getHelpers } from "../helpers";
 
@@ -22,6 +22,9 @@ export const storeBid = async (bid: Bid, _requestContext: RequestContext): Promi
     logger,
     adapters: { cache, subgraph },
   } = getContext();
+  const {
+    auctions: { recoverRouterPathPayload, deriveTransferId },
+  } = getHelpers();
   const { requestContext, methodContext } = createLoggingContext(storeBid.name, _requestContext);
   logger.debug(`Method start: ${storeBid.name}`, requestContext, methodContext, { bid });
 
@@ -71,6 +74,44 @@ export const storeBid = async (bid: Bid, _requestContext: RequestContext): Promi
       transferId,
       bid,
     });
+  }
+
+  // TODO: Cache this information! No reason to do this check twice!
+  // Check that we are able to produce the correct arguments for the execute function by deriving a transfer ID
+  // and comparing it to the one that exists on-chain.
+  const canonicalAsset = await subgraph.getAssetByLocal(transfer.originDomain, transfer.xcall.localAsset);
+  if (!canonicalAsset) {
+    throw new AssetNotFound(transfer.originDomain, transfer.xcall.localAsset);
+  }
+  const derived = deriveTransferId({
+    nonce: transfer.nonce,
+    params: {
+      originDomain: transfer.originDomain,
+      destinationDomain: transfer.destinationDomain,
+      to: transfer.to,
+      callData: transfer.callData,
+    },
+    originSender: transfer.xcall.caller,
+    tokenId: canonicalAsset.canonicalId,
+    tokenDomain: canonicalAsset.canonicalDomain,
+    // TODO: Should be the amount the router is bidding, no?
+    amount: transfer.xcall.localAmount,
+  });
+  console.log("DEBUG: DERIVED TRANSFER ID", derived);
+  if (derived !== transferId) {
+    throw new ParamsInvalid({
+      paramsError:
+        "Derived transferId does not match the one from on-chain. " +
+        "The asset record in the subgraph must be corrupted.",
+    });
+  }
+
+  // Validate router signature(s) for each path length that the router bid on.
+  for (const pathLength of Object.keys(signatures)) {
+    const recovered = recoverRouterPathPayload(transferId, pathLength, signatures[pathLength]);
+    if (recovered !== router) {
+      throw new InvalidRouterSignature(transferId, pathLength, router, recovered);
+    }
   }
 
   // Update and/or create the auction instance in the cache if necessary.

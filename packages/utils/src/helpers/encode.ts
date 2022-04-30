@@ -1,6 +1,7 @@
 import { defaultAbiCoder, keccak256 } from "ethers/lib/utils";
 
 import { ExternalCall, ReconciledTransaction } from "..";
+import { CallParams } from "../types";
 
 /**
  * Cleans any strings so they replace the newlines and properly format whitespace. Used to translate human readable encoding to contract-compatible encoding.
@@ -25,6 +26,10 @@ export const ReconciledTransactionDataEncoding = tidy(`tuple(
   address local,
   uint256 amount,
   address recipient
+)`);
+
+export const TransferIdEncoding = tidy(`tuple(
+  uint256 nonce,
 )`);
 
 /**
@@ -85,4 +90,49 @@ export const encodeExternalCallData = (exteranalCallData: ExternalCall): string 
 export const getExternalCallHash = (externalCallData: ExternalCall): string => {
   const digest = keccak256(defaultAbiCoder.encode([ExternalCallDataEncoding], [externalCallData]));
   return digest;
+};
+
+/**
+ * Encodes a transferId payload object, as defined in the ConnextLogic contract under the
+ * `_getTransferId` method. Can be used to produce a valid transfer ID string if hashed using
+ * keccak256.
+ *
+ * @param args.nonce - The nonce of the origin domain at the time of the xcall.
+ * @param args.params - The CallParams of the xcall.
+ * @param args.originSender - The address of the sender of the xcall.
+ * @param args.tokenId - The canonical token ID of the transported asset.
+ * @param args.tokenDomain - The domain of the canonical token of the transported asset.
+ * @param args.amount - The amount of the transported asset.
+ *
+ * @returns Encoded transferId payload.
+ */
+export const encodeTransferIdPayload = (args: {
+  nonce: number;
+  params: CallParams;
+  originSender: string;
+  tokenId: string;
+  tokenDomain: string;
+  amount: string;
+}): string => {
+  console.log(args);
+  return defaultAbiCoder.encode(
+    [
+      "tuple(uint256 nonce, tuple(address to, bytes callData, uint32 originDomain, uint32 destinationDomain) params, address originSender, bytes32 tokenId, uint32 tokenDomain, uint256 amount)",
+    ],
+    [
+      {
+        nonce: args.nonce,
+        params: {
+          to: args.params.to,
+          callData: args.params.callData,
+          originDomain: args.params.originDomain,
+          destinationDomain: args.params.destinationDomain,
+        },
+        originSender: args.originSender,
+        tokenId: args.tokenId,
+        tokenDomain: args.tokenDomain,
+        amount: args.amount,
+      },
+    ],
+  );
 };

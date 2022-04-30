@@ -2,13 +2,23 @@ import { AuctionStatus, NxtpError } from "@connext/nxtp-utils";
 
 export class ParamsInvalid extends NxtpError {
   constructor(context: any = {}) {
-    super(`Params invalid`, context, ParamsInvalid.name);
+    super("Params invalid.", context, ParamsInvalid.name);
   }
 }
 
 export class AuctionExpired extends NxtpError {
   constructor(status: AuctionStatus, context: any = {}) {
     super("This auction has already expired.", { status, ...context }, AuctionExpired.name);
+  }
+}
+
+export class AssetNotFound extends NxtpError {
+  constructor(domain: string, local: string, context: any = {}) {
+    super(
+      "Unable to find the origin domain's local asset in the subgraph.",
+      { domain, local, ...context },
+      AssetNotFound.name,
+    );
   }
 }
 

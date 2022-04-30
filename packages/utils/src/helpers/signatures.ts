@@ -1,6 +1,10 @@
 import { Signer, Wallet, BigNumber, providers } from "ethers";
 import { arrayify, solidityKeccak256, splitSignature, verifyMessage } from "ethers/lib/utils";
 
+import { CallParams } from "../types";
+
+import { encodeTransferIdPayload } from "./encode";
+
 import { encodeRouterPathPayload } from ".";
 
 /**
@@ -86,4 +90,30 @@ export const getRouterPathHashToSign = (transferId: string, pathLength: string):
 export const recoverRouterPathPayload = (transferId: string, pathLength: string, signature: string): string => {
   const hashed = getRouterPathHashToSign(transferId, pathLength);
   return verifyMessage(arrayify(hashed), signature);
+};
+
+/**
+ * This method will mimic the on-chain behavior for creating a transfer ID from
+ * the given arguments. It is intended for use to double-check those arguments before
+ * sending calls to the chain, as a sanity check.
+ *
+ * @param args.nonce - The nonce of the origin domain at the time of the xcall.
+ * @param args.params - The CallParams of the xcall.
+ * @param args.originSender - The address of the sender of the xcall.
+ * @param args.tokenId - The canonical token ID of the transported asset.
+ * @param args.tokenDomain - The domain of the canonical token of the transported asset.
+ * @param args.amount - The amount of the transported asset.
+ *
+ * @returns The transfer ID string that would be derived from the given arguments.
+ */
+export const deriveTransferId = (args: {
+  nonce: number;
+  params: CallParams;
+  originSender: string;
+  tokenId: string;
+  tokenDomain: string;
+  amount: string;
+}): string => {
+  const payload = encodeTransferIdPayload(args);
+  return solidityKeccak256(["bytes"], [payload]);
 };

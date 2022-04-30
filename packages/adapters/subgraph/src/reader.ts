@@ -103,7 +103,7 @@ export class SubgraphReader {
     const subgraph = this.subgraphs.get(domain);
     // handle doesnt exist
     const { assets } = await subgraph!.runtime.request<GetAssetByLocalQuery>((client) => {
-      return client.GetAssetByLocal({ local });
+      return client.GetAssetByLocal({ local: local.toLowerCase() });
     });
     if (assets.length === 0) {
       return undefined;
