@@ -28,8 +28,11 @@ export const ReconciledTransactionDataEncoding = tidy(`tuple(
   address recipient
 )`);
 
-export const TransferIdEncoding = tidy(`tuple(
-  uint256 nonce,
+export const CallParamsEncoding = tidy(`tuple(
+  address to,
+  bytes callData,
+  uint32 originDomain,
+  uint32 destinationDomain
 )`);
 
 /**
@@ -116,23 +119,19 @@ export const encodeTransferIdPayload = (args: {
 }): string => {
   console.log(args);
   return defaultAbiCoder.encode(
+    ["uint256", `${CallParamsEncoding} params`, "address", "bytes32", "uint32", "uint256"],
     [
-      "tuple(uint256 nonce, tuple(address to, bytes callData, uint32 originDomain, uint32 destinationDomain) params, address originSender, bytes32 tokenId, uint32 tokenDomain, uint256 amount)",
-    ],
-    [
+      args.nonce,
       {
-        nonce: args.nonce,
-        params: {
-          to: args.params.to,
-          callData: args.params.callData,
-          originDomain: args.params.originDomain,
-          destinationDomain: args.params.destinationDomain,
-        },
-        originSender: args.originSender,
-        tokenId: args.tokenId,
-        tokenDomain: args.tokenDomain,
-        amount: args.amount,
+        to: args.params.to,
+        originDomain: args.params.originDomain,
+        destinationDomain: args.params.destinationDomain,
+        callData: args.params.callData,
       },
+      args.originSender,
+      args.tokenId,
+      args.tokenDomain,
+      args.amount,
     ],
   );
 };
