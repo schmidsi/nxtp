@@ -139,7 +139,7 @@ export function handleXCalled(event: XCalled): void {
 
   // Transfer Data
   transfer.transferId = event.params.transferId;
-  transfer.nonce = event.params.nonce;
+  transfer.nonce = event.params.xcallArgs.nonce;
   transfer.to = event.params.xcallArgs.params.to;
   transfer.callData = event.params.xcallArgs.params.callData;
   transfer.relayerFee = event.params.xcallArgs.relayerFee;
@@ -147,10 +147,10 @@ export function handleXCalled(event: XCalled): void {
 
   // XCalled
   transfer.xcalledCaller = event.params.caller;
-  transfer.xcalledTransactingAmount = event.params.args.bridgedAmt;
-  transfer.xcalledLocalAmount = event.params.xcallArgs.amount;
-  transfer.xcalledTransactingAsset = event.params.args.bridged;
-  transfer.xcalledLocalAsset = event.params.xcallArgs.transactingAssetId;
+  transfer.xcalledTransactingAmount = event.params.args.amount;
+  transfer.xcalledLocalAmount = event.params.args.bridgedAmt;
+  transfer.xcalledTransactingAsset = event.params.args.transactingAssetId;
+  transfer.xcalledLocalAsset = event.params.xcallArgs.bridged;
 
   // Transaction XCalled
   transfer.xcalledTransactionHash = event.transaction.hash;
@@ -179,7 +179,7 @@ export function handleExecuted(event: Executed): void {
       router = new Router(param);
       router.save();
     }
-    routers.push(router.id as string);
+    routers.push(router.id);
   }
 
   let transfer = Transfer.load(event.params.transferId.toHexString());
