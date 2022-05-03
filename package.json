@@ -23,6 +23,7 @@
     "packages/agents/router",
     "packages/agents/sequencer",
     "packages/agents/backend/poller",
+    "packages/agents/backend/api",
     "packages/agents/sdk",
     "packages/agents/relayer",
     "packages/integration",
